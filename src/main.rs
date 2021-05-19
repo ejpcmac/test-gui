@@ -2,12 +2,13 @@ use gtk::{
     prelude::*,
     Orientation::{Horizontal, Vertical},
 };
-use relm::Widget;
+use relm::{connect, Relm, Widget};
 use relm_derive::{widget, Msg};
 
 use test_gui::{Color, Device};
 
 pub struct Model {
+    relm: Relm<Win>,
     port: String,
     device: Option<Device>,
     status: String,
@@ -27,8 +28,9 @@ pub enum Msg {
 
 #[widget]
 impl Widget for Win {
-    fn model() -> Model {
+    fn model(relm: &Relm<Self>, _: ()) -> Model {
         Model {
+            relm: relm.clone(),
             port: String::new(),
             device: None,
             status: String::from("Disconnected"),
@@ -77,10 +79,16 @@ impl Widget for Win {
             Msg::Connect => match Device::new(&self.model.port) {
                 Ok(device) => {
                     self.model.device = Some(device);
-                    self.widgets.connect_button.set_label("Disconnect");
-                    // TODO: Also update the event.
                     self.model.status =
                         format!("Connected to {}.", self.model.port);
+
+                    self.widgets.connect_button.set_label("Disconnect");
+                    connect!(
+                        self.widgets.connect_button,
+                        connect_clicked(_),
+                        self.model.relm,
+                        Msg::Disconnect
+                    );
                 }
 
                 Err(error) => {
@@ -90,10 +98,17 @@ impl Widget for Win {
             },
 
             Msg::Disconnect => {
+                // TODO: Properly free the serial port.
                 self.model.device = None;
-                self.widgets.connect_button.set_label("Connect");
-                // TODO: Also update the event.
                 self.model.status = String::from("Disconnected");
+
+                self.widgets.connect_button.set_label("Connect");
+                connect!(
+                    self.widgets.connect_button,
+                    connect_clicked(_),
+                    self.model.relm,
+                    Msg::Connect
+                );
             }
 
             Msg::Quit => gtk::main_quit(),
