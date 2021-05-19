@@ -101,7 +101,6 @@ impl Widget for Win {
             },
 
             Msg::Disconnect => {
-                // TODO: Properly free the serial port.
                 self.model.device = None;
                 self.model.connection_status = String::from("Disconnected.");
                 self.model.ping_status = String::from("Not yet.");
