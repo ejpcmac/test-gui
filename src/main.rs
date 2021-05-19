@@ -11,7 +11,8 @@ pub struct Model {
     relm: Relm<Win>,
     port: String,
     device: Option<Device>,
-    status: String,
+    connection_status: String,
+    ping_status: String,
     color: Color,
 }
 
@@ -23,6 +24,7 @@ pub enum Msg {
     UpdateVal(f64),
     Connect,
     Disconnect,
+    Ping,
     Quit,
 }
 
@@ -33,7 +35,8 @@ impl Widget for Win {
             relm: relm.clone(),
             port: String::new(),
             device: None,
-            status: String::from("Disconnected"),
+            connection_status: String::from("Disconnected."),
+            ping_status: String::from("Not yet."),
             color: Color {
                 hue: 0,
                 sat: 255,
@@ -79,7 +82,7 @@ impl Widget for Win {
             Msg::Connect => match Device::new(&self.model.port) {
                 Ok(device) => {
                     self.model.device = Some(device);
-                    self.model.status =
+                    self.model.connection_status =
                         format!("Connected to {}.", self.model.port);
 
                     self.widgets.connect_button.set_label("Disconnect");
@@ -92,7 +95,7 @@ impl Widget for Win {
                 }
 
                 Err(error) => {
-                    self.model.status =
+                    self.model.connection_status =
                         format!("Error: {}.", error.to_string());
                 }
             },
@@ -100,7 +103,8 @@ impl Widget for Win {
             Msg::Disconnect => {
                 // TODO: Properly free the serial port.
                 self.model.device = None;
-                self.model.status = String::from("Disconnected");
+                self.model.connection_status = String::from("Disconnected.");
+                self.model.ping_status = String::from("Not yet.");
 
                 self.widgets.connect_button.set_label("Connect");
                 connect!(
@@ -111,6 +115,20 @@ impl Widget for Win {
                 );
             }
 
+            Msg::Ping => {
+                if let Some(device) = &mut self.model.device {
+                    match device.ping() {
+                        Ok(()) => {
+                            self.model.ping_status = String::from("Pong!");
+                        }
+
+                        Err(_) => {
+                            self.model.ping_status = String::from("Error :(");
+                        }
+                    }
+                }
+            }
+
             Msg::Quit => gtk::main_quit(),
         }
     }
@@ -119,6 +137,7 @@ impl Widget for Win {
         gtk::Window {
             gtk::Box {
                 orientation: Vertical,
+
                 gtk::Entry {
                     placeholder_text: Some("TTY port path"),
                     changed(entry) => {
@@ -127,17 +146,34 @@ impl Widget for Win {
                     },
                 },
 
-                #[name = "connect_button"]
-                gtk::Button {
-                    label: "Connect",
-                    clicked => Msg::Connect,
+                gtk::Box {
+                    orientation: Horizontal,
+                    homogeneous: true,
+
+                    #[name = "connect_button"]
+                    gtk::Button {
+                        label: "Connect",
+                        clicked => Msg::Connect,
+                    },
+
+                    gtk::Label {
+                        text: &self.model.connection_status,
+                    },
                 },
 
-                gtk::Label {
-                    text: &self.model.status,
-                },
+                gtk::Box {
+                    orientation: Horizontal,
+                    homogeneous: true,
 
-                // TODO: Ping button.
+                    gtk::Button {
+                        label: "Ping",
+                        clicked => Msg::Ping,
+                    },
+
+                    gtk::Label {
+                        text: &self.model.ping_status,
+                    }
+                },
 
                 gtk::Label {
                     text: "Hue",
@@ -171,7 +207,7 @@ impl Widget for Win {
             },
 
             delete_event(_, _) => (Msg::Quit, Inhibit(false)),
-        }
+        },
     }
 }
 
