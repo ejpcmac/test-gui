@@ -1,8 +1,8 @@
 use std::time::Duration;
 
 use ercp_basic::{
-    adapter::SerialPortAdapter, command::ACK, Command, DefaultRouter,
-    ErcpBasic, Error,
+    adapter::SerialPortAdapter, command::ACK, error::CommandError, Command,
+    DefaultRouter, ErcpBasic, Error,
 };
 
 /// A development device.
@@ -46,8 +46,7 @@ impl Device {
         if reply.command() == ACK {
             Ok(())
         } else {
-            // TODO: Better error.
-            Err(Error::OtherError)
+            Err(CommandError::UnexpectedReply.into())
         }
     }
 }
